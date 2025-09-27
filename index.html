@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Code 128 — Teaching Tool (A/B/C) • Size Control + Example Popup</title>
+<style>
+  :root { --bg:#0b0c10; --fg:#eaeef2; --muted:#98a2b3; --card:#111827;
+          --guideA:#eab30833; --guideB:#22c55e33; --guideC:#3b82f633; --guideD:#a855f733; --guideE:#ef444433; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; color:var(--fg);
+         background:linear-gradient(180deg,#0b0c10 0%,#0f172a 100%); }
+  header { padding:16px 20px 8px; border-bottom:1px solid #1f2937; }
+  h1 { margin:0 0 4px; font-size:20px; }
+  .sub { color:var(--muted); font-size:13px; }
+
+  /* Wider app canvas */
+  .wrap { display:grid; gap:16px; padding:16px; max-width:1600px; margin:0 auto; }
+  .topGrid { display:grid; gap:16px; grid-template-columns:1fr; }
+  @media (min-width:980px){ .topGrid { grid-template-columns:1fr 2fr; } }
+
+  .controls,.canvas-card,.table-card{ background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:12px; }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  label{ display:inline-flex; gap:8px; align-items:center; font-size:14px; color:var(--fg); }
+  input[type="text"]{ flex:0 1 260px; max-width:320px; background:#0b1220; color:var(--fg);
+    border:1px solid #243045; border-radius:8px; padding:8px 10px; font-size:15px; }
+  select,input[type="range"]{ background:#0b1220; color:var(--fg); border:1px solid #243045; border-radius:8px; padding:6px 8px; font-size:14px; }
+  input[type="checkbox"]{ transform:scale(1.05); }
+  .num{ padding:2px 8px; border-radius:999px; font-size:12px; color:var(--muted); border:1px solid #243045; background:#0b1220; }
+  .btn{ appearance:none; border:1px solid #2b3a55; background:#0b1220; color:var(--fg); padding:8px 12px; border-radius:8px; cursor:pointer; font-size:14px; }
+  .btn:hover{ filter:brightness(1.1); }
+  .btn.primary{ background:#1f3a8a; border-color:#1f3a8a; }
+
+  /* Barcode pane: scroll when wider than panel */
+  .canvas-card{ overflow-x:auto; padding-bottom:32px; }
+  #stage{ width:100%; }
+  #barcodeSVG{ display:block; height:auto; background:#ffffff; border-radius:10px; }
+  .below-barcode-space{ height:32px; }
+  .note{ color:var(--muted); margin-top:6px; font-size:12px; }
+  .warn{ color:#fca5a5; font-size:12px; margin-top:6px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th,td{ border-bottom:1px solid #1f2937; padding:8px; text-align:left; }
+  th{ color:var(--muted); font-weight:600; }
+  .right{ text-align:right; }
+  .chip{ padding:2px 6px; border-radius:6px; background:#0b1220; border:1px solid #243045; }
+  .mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace; }
+
+  /* Modal (patterns + example) */
+  .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:50; }
+  .modal{ width:min(1000px,96vw); max-height:90vh; overflow:hidden; background:#0f172a; border:1px solid #334155; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  .modal header{ border:none; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; }
+  .modal .content{ padding:12px 16px; overflow:auto; max-height:calc(90vh - 70px); }
+
+  .example{ background:#0b1220; border:1px solid #243045; border-radius:10px; padding:12px; margin-bottom:12px; }
+  .example h4{ margin:0 0 6px; font-size:14px; color:var(--muted); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .example .ex-details{ font-size:13px; color:var(--muted); margin-top:6px; }
+  #exampleSVG{ width:100%; height:auto; background:#ffffff; border-radius:8px; display:block; }
+
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:12px; }
+  .card{ background:#0b1220; border:1px solid #243045; border-radius:10px; padding:8px; cursor:pointer; }
+  .card:hover{ outline:1px solid #475569; }
+  .card h4{ margin:0 0 6px; font-size:13px; color:var(--muted); display:flex; gap:8px; align-items:center; }
+  .mini{ width:100%; height:56px; background:#ffffff; border-radius:6px; display:block; }
+  .close-x{ border:none; background:transparent; color:var(--fg); font-size:22px; line-height:1; cursor:pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Code 128 — Teaching Tool (A/B/C)</h1>
+  <div class="sub">Main page unchanged (Fit/Manual size). Popup restored with big annotated example + clickable symbol cards.</div>
+</header>
+
+<div class="wrap">
+  <div class="topGrid">
+    <!-- Controls (unchanged) -->
+    <div class="controls">
+      <div class="row" style="margin-bottom:8px;">
+        <label>Text:
+          <input id="inputText" type="text" placeholder="Hello, world!" value="Hello, world!" />
+        </label>
+      </div>
+
+      <div class="row">
+        <label>Code Set:
+          <select id="codeSet">
+            <option value="B" selected>Code 128 B</option>
+            <option value="A">Code 128 A</option>
+            <option value="C">Code 128 C</option>
+          </select>
+        </label>
+        <label><input id="showGuides" type="checkbox" checked /> Show guides & labels</label>
+      </div>
+
+      <div class="row">
+        <label><input id="showText" type="checkbox" /> Human-readable text</label>
+        <label>Text size:
+          <input id="textSize" type="range" min="10" max="32" value="18" />
+          <span class="num" id="tsVal">18 px</span>
+        </label>
+      </div>
+
+      <div class="row">
+        <label>Quiet zone:
+          <input id="quiet" type="range" min="4" max="30" value="12" />
+          <span class="num" id="qzVal">12 modules</span>
+        </label>
+        <label>Bar height:
+          <input id="barHeight" type="range" min="160" max="520" value="340" />
+          <span class="num" id="bhVal">340 px</span>
+        </label>
+      </div>
+
+      <!-- Width mode + manual size (unchanged) -->
+      <div class="row">
+        <label>Width mode:
+          <select id="widthMode">
+            <option value="fit">Fit to panel</option>
+            <option value="manual" selected>Manual size</option>
+          </select>
+        </label>
+        <label id="sizeWrap">Barcode size:
+          <input id="moduleWidth" type="range" min="1" max="16" value="7" />
+          <span class="num" id="mwVal">7 px/module</span>
+        </label>
+      </div>
+
+      <div class="row" style="margin-top:8px;">
+        <button class="btn" id="downloadSVG">Download SVG</button>
+        <button class="btn primary" id="downloadPNG">Download PNG</button>
+        <button class="btn" id="showPatternsBtn">Show encoding patterns</button>
+      </div>
+
+      <div class="note" style="margin-top:8px;">
+        Checksum: <span class="mono">Start + Σ(i×code[i])</span>, then <span class="mono">mod 103</span>. Non-stop symbols are 11 modules; Stop is 13.
+      </div>
+    </div>
+
+    <!-- Barcode (unchanged) -->
+    <div class="canvas-card">
+      <div id="stage">
+        <svg id="barcodeSVG" viewBox="0 0 900 320" preserveAspectRatio="xMinYMin meet" aria-label="Code 128 barcode"></svg>
+      </div>
+      <div class="below-barcode-space"></div>
+      <div id="errorBox" class="warn" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <!-- Breakdown (unchanged) -->
+  <div class="table-card">
+    <h3 style="margin:6px 0 10px;">Encoding breakdown</h3>
+    <table id="breakdown">
+      <thead>
+        <tr><th>#</th><th>Role</th><th>Shown</th><th>Code value</th><th>Pattern</th><th class="right">Checksum weight</th></tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr><td colspan="5" class="right"><b>Checksum total (before mod 103)</b></td><td class="right mono" id="checksumTotalCell">—</td></tr>
+        <tr><td colspan="5" class="right"><b>Checksum (mod 103)</b></td><td class="right mono" id="checksumCell">—</td></tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<!-- RESTORED: Patterns modal with enlarged example and clickable cards -->
+<div id="patternsBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="patternsTitle">
+  <div class="modal">
+    <header>
+      <h2 id="patternsTitle" style="margin:0; font-size:18px;">Code 128 Encoding Patterns</h2>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <label>Set:
+          <select id="patternsSet">
+            <option value="B">B (ASCII 32–126)</option>
+            <option value="A">A (ASCII 0–95)</option>
+            <option value="C">C (00–99 pairs)</option>
+          </select>
+        </label>
+        <button class="close-x" id="closePatterns" aria-label="Close">×</button>
+      </div>
+    </header>
+    <div class="content">
+      <!-- Enlarged, explicit example -->
+      <div class="example" id="exampleBox">
+        <h4 id="exampleTitle">
+          Example: <span class="mono" id="exLabel">"0"</span>
+          • code value <span class="chip mono" id="exCodeVal">16</span>
+          • pattern <span class="mono" id="exPattern">123122</span>
+        </h4>
+        <svg id="exampleSVG" viewBox="0 0 800 180" preserveAspectRatio="xMinYMin meet" aria-label="Pattern example"></svg>
+        <div class="ex-details" id="exDetails">
+          Pattern <span class="mono">123122</span> means: <b>Bar×1</b>, <b>Space×2</b>, <b>Bar×3</b>, <b>Space×1</b>, <b>Bar×2</b>, <b>Space×2</b>.
+          Bars are black rectangles; spaces are the white gaps. Each number is a multiple of the narrowest “module”.
+        </div>
+      </div>
+
+      <div class="note" style="margin-bottom:10px;">
+        Click any card below to load it into the example. Cards show the character/pair, code value, and the bar/space pattern digits (single-symbol, no Start/Stop).
+      </div>
+      <div id="patternsGrid" class="grid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- Patterns (0–106) ---------- */
+const CODE128_PATTERNS = [
+  "212222","222122","222221","121223","121322","131222","122213","122312","132212","221213",
+  "221312","231212","112232","122132","122231","113222","123122","123221","223211","221132",
+  "221231","213212","223112","312131","311222","321122","321221","312212","322112","322211",
+  "212123","212321","232121","111323","131123","131321","112313","132113","132311","211313",
+  "231113","231311","112133","112331","132131","113123","113321","133121","313121","211331",
+  "231131","213113","213311","213131","311123","311321","331121","312113","312311","332111",
+  "314111","221411","431111","111224","111422","121124","121421","141122","141221","112214",
+  "112412","122114","122411","142112","142211","241211","221114","413111","241112","134111",
+  "111242","121142","121241","114212","124112","124211","411212","421112","421211","212141",
+  "214121","412121","111143","111341","131141","114113","114311","411113","411311","113141",
+  "114131","311141","411131","211412","211214","211232","2331112"
+];
+const START_A=103, START_B=104, START_C=105, STOP=106;
+
+function patternToArray(p){ return p.split("").map(n=>parseInt(n,10)); }
+function getPattern(cv){ const p=CODE128_PATTERNS[cv]; if(!p) throw Error("Invalid code value "+cv); return patternToArray(p); }
+
+/* ---------- Set mappings ---------- */
+function charToCodeA(ch){ const c=ch.charCodeAt(0); return (c>=0 && c<=95)?c:null; }
+function charToCodeB(ch){ const c=ch.charCodeAt(0); return (c<32||c>126)?null:(c-32); }
+
+/* ---------- Encode ---------- */
+function encodeCode128(input,set){
+  const issues=[], data=[], shown=[];
+  if(set==="A"){
+    for(let i=0;i<input.length;i++){
+      const cv=charToCodeA(input[i]);
+      if(cv===null) issues.push(`Set A does not support "${input[i]}" (ASCII ${input.charCodeAt(i)}).`);
+      else{ data.push(cv); const cc=input.charCodeAt(i); shown.push(cc<32?`^${String.fromCharCode(cc+64)}`:input[i]); }
+    }
+  } else if(set==="B"){
+    for(let i=0;i<input.length;i++){
+      const cv=charToCodeB(input[i]);
+      if(cv===null) issues.push(`Set B supports only ASCII 32–126. Ignoring "${input[i]}".`);
+      else{ data.push(cv); shown.push(input[i]===" "?"␠":input[i]); }
+    }
+  } else { // C
+    const digits=(input.match(/\d/g)||[]).join("");
+    if(/[^0-9]/.test(input)) issues.push("Set C encodes digits only (00–99 pairs). Non-digits are ignored.");
+    if(digits.length%2===1) issues.push("Set C needs an even number of digits; ignoring the last lone digit.");
+    for(let i=0;i+1<digits.length;i+=2){ const pair=digits.slice(i,i+2); data.push(parseInt(pair,10)); shown.push(pair); }
+  }
+  const start=(set==="A")?START_A:(set==="B")?START_B:START_C;
+  let sum=start; data.forEach((cv,i)=>sum+=(i+1)*cv);
+  const checksum=sum%103;
+  return { codes:[start,...data,checksum,STOP], data, shown, checksum, checksumTotal:sum, issues, set };
+}
+
+/* ---------- Main drawing (unchanged main page behavior) ---------- */
+function drawBarcode({ input,set="B",quietModules=12,showGuides=true,showText=false,textSize=18,barHeight=340, widthMode="manual", manualModule=7 }){
+  const stage=document.getElementById("stage");
+  const svg=document.getElementById("barcodeSVG");
+  const err=document.getElementById("errorBox");
+  const tbody=document.querySelector("#breakdown tbody");
+  const csumCell=document.getElementById("checksumCell");
+  const csumTotCell=document.getElementById("checksumTotalCell");
+
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  tbody.innerHTML=""; err.textContent="";
+
+  const {codes,data,shown,checksum,checksumTotal,issues}=encodeCode128(input,set);
+  if(issues.length) err.textContent="Note: "+issues.join("  ");
+
+  const entries=[]; let di=0;
+  for(let i=0;i<codes.length;i++){
+    let role="Data", disp="", weight="—";
+    if(i===0){ role=(set==="A"?"Start A":set==="B"?"Start B":"Start C"); disp=role.replace(" ","_").toUpperCase(); }
+    else if(i===codes.length-2){ role="Checksum"; disp=String(checksum); }
+    else if(i===codes.length-1){ role="Stop"; disp="STOP"; }
+    else { disp=shown[di]??""; weight=`${di+1} × ${data[di]} = ${(di+1)*data[di]}`; di++; }
+    entries.push({ role, code:codes[i], pattern:getPattern(codes[i]), shown:disp, weight });
+  }
+
+  const symbolModules=entries.reduce((a,e)=>a+e.pattern.reduce((x,y)=>x+y,0),0);
+  const totalModules=quietModules + symbolModules + quietModules;
+
+  let moduleWidth;
+  if(widthMode==="fit"){
+    const paneWidth=Math.max(360, stage.clientWidth || window.innerWidth);
+    moduleWidth=Math.max(1, Math.floor(paneWidth / totalModules));
+  } else {
+    moduleWidth = Math.max(1, parseInt(manualModule,10));
+  }
+
+  const labelTop = showGuides ? 32 : 0;
+  const labelBottom = showText ? (textSize + 14) : 0;
+  const totalWidthPx = totalModules * moduleWidth;
+  const totalHeightPx = labelTop + barHeight + labelBottom;
+
+  svg.style.width = totalWidthPx + "px";
+  svg.style.height = totalHeightPx + "px";
+  svg.setAttribute("viewBox", `0 0 ${totalWidthPx} ${totalHeightPx}`);
+
+  const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
+  bg.setAttribute("width", totalWidthPx); bg.setAttribute("height", totalHeightPx); bg.setAttribute("fill","#ffffff");
+  svg.appendChild(bg);
+
+  const guideFills=["var(--guideA)","var(--guideB)","var(--guideC)","var(--guideD)","var(--guideE)"];
+  let x = quietModules * moduleWidth;
+
+  const MIN_LABEL_PX = 40;
+  const usableWidth = totalWidthPx - 2*quietModules*moduleWidth;
+  const approxMaxLabels = Math.max(1, Math.floor(usableWidth / MIN_LABEL_PX));
+  const dataCount = Math.max(0, entries.length - 3);
+  const step = (showGuides && dataCount>approxMaxLabels) ? Math.ceil(dataCount / approxMaxLabels) : 1;
+  let dataSeen = 0;
+
+  entries.forEach((e, idx)=>{
+    const pat=e.pattern;
+    const modulesWide=pat.reduce((a,b)=>a+b,0);
+    const symW=modulesWide*moduleWidth;
+
+    if(showGuides){
+      const g=document.createElementNS("http://www.w3.org/2000/svg","rect");
+      g.setAttribute("x",x); g.setAttribute("y",0); g.setAttribute("width",symW); g.setAttribute("height",totalHeightPx);
+      g.setAttribute("fill",guideFills[idx%guideFills.length]); svg.appendChild(g);
+
+      let drawLabel=true;
+      if(e.role==="Data"){
+        const myIndex=dataSeen;
+        drawLabel = (symW>=MIN_LABEL_PX) && ((myIndex % step)===0);
+        dataSeen++;
+      } else {
+        drawLabel = (symW>=MIN_LABEL_PX);
+      }
+      if(drawLabel){
+        const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+        t.setAttribute("x", x + symW/2); t.setAttribute("y", 18);
+        t.setAttribute("text-anchor","middle"); t.setAttribute("font-size","12");
+        t.setAttribute("font-family","ui-monospace, Menlo, Consolas, monospace");
+        t.textContent = e.role==="Data" ? (e.shown || "␠") : e.shown;
+        svg.appendChild(t);
+      }
+    }
+
+    let isBar=true, cursor=x;
+    for(const w of pat){
+      const wPx=w*moduleWidth;
+      if(isBar){
+        const r=document.createElementNS("http://www.w3.org/2000/svg","rect");
+        r.setAttribute("x",cursor); r.setAttribute("y",labelTop);
+        r.setAttribute("width",wPx); r.setAttribute("height",barHeight);
+        r.setAttribute("fill","#000000"); svg.appendChild(r);
+      }
+      cursor+=wPx; isBar=!isBar;
+    }
+    x+=symW;
+  });
+
+  if(showText){
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x", totalWidthPx/2);
+    t.setAttribute("y", labelTop + barHeight + textSize);
+    t.setAttribute("text-anchor","middle");
+    t.setAttribute("font-size", String(textSize));
+    t.setAttribute("font-family", "ui-monospace, Menlo, Consolas, monospace");
+    t.textContent = humanTextForSet(input,set);
+    svg.appendChild(t);
+  }
+
+  let sum=entries[0]?.code ?? 0; let iData=0;
+  const frag=document.createDocumentFragment();
+  entries.forEach((e,i)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML = `
+      <td>${i}</td><td>${e.role}</td>
+      <td>${e.role==="Data"?(e.shown||"␠"):e.shown}</td>
+      <td><span class="chip mono">${e.code}</span></td>
+      <td class="mono">${e.pattern.join("")}</td>
+      <td class="right mono">${e.role==="Data"?`${iData+1}×${e.code} = ${(iData+1)*e.code}`:"—"}</td>`;
+    if(e.role==="Data"){ sum += (iData+1)*e.code; iData++; }
+    frag.appendChild(tr);
+  });
+  tbody.appendChild(frag);
+  csumTotCell.textContent=String(sum);
+  csumCell.textContent=String(sum%103);
+
+  lastRender={ width:totalWidthPx, height:totalHeightPx };
+}
+
+/* human-readable text */
+function humanTextForSet(input,set){
+  if(set==="C"){ const d=(input.match(/\d/g)||[]).join(""); return d.length<2?"":d.slice(0,d.length-(d.length%2)); }
+  if(set==="A"){ let out=""; for(let i=0;i<input.length;i++){ const cc=input.charCodeAt(i); out += (cc<32)?("^"+String.fromCharCode(cc+64)):(cc<=95?input[i]:""); } return out; }
+  return input.split("").filter(ch=>{ const cc=ch.charCodeAt(0); return cc>=32 && cc<=126; }).join("");
+}
+
+/* ---------- Export ---------- */
+function download(filename,blob){ const a=document.createElement("a"); const url=URL.createObjectURL(blob); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0); }
+function getCurrentSVGString(){ const svg=document.getElementById("barcodeSVG"); const clone=svg.cloneNode(true); clone.setAttribute("xmlns","http://www.w3.org/2000/svg"); return new XMLSerializer().serializeToString(clone); }
+function exportSVG(){ download("code128.svg", new Blob([getCurrentSVGString()],{type:"image/svg+xml;charset=utf-8"})); }
+function exportPNG(){
+  const svgText=getCurrentSVGString(); const url=URL.createObjectURL(new Blob([svgText],{type:"image/svg+xml;charset=utf-8"}));
+  const img=new Image(); img.onload=function(){ const w=lastRender?.width||1400, h=lastRender?.height||360;
+    const c=document.createElement("canvas"); c.width=w; c.height=h; const ctx=c.getContext("2d"); ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
+    c.toBlob(b=>{ download("code128.png",b); URL.revokeObjectURL(url); },"image/png"); };
+  img.onerror=()=>URL.revokeObjectURL(url); img.src=url;
+}
+
+/* ---------- Patterns modal: restored grid + enlarged example ---------- */
+function openPatterns(){
+  const backdrop=document.getElementById("patternsBackdrop");
+  const setSel=document.getElementById("patternsSet");
+  setSel.value = codeSetEl.value; // sync with main page
+  renderPatternsGrid(setSel.value);
+  // sensible default example per set
+  if (setSel.value === "C") renderExample({ label: "00", codeVal: 0 });
+  else if (setSel.value === "A") renderExample({ label: "0", codeVal: 48 });
+  else renderExample({ label: "0", codeVal: 16 }); // Set B: '0' -> cv 16
+  backdrop.style.display="flex";
+  setTimeout(()=> setSel.focus(), 0);
+}
+function closePatterns(){ document.getElementById("patternsBackdrop").style.display="none"; }
+
+function renderPatternsGrid(set){
+  const grid=document.getElementById("patternsGrid");
+  grid.innerHTML="";
+  const items=[];
+  if (set === "B") {
+    for (let cc=32; cc<=126; cc++){
+      const codeVal = cc - 32;
+      const label = cc===32 ? "␠ (space)" : String.fromCharCode(cc);
+      items.push({ label, codeVal });
+    }
+  } else if (set === "A") {
+    for (let cc=0; cc<=95; cc++){
+      const label = (cc<32) ? `^${String.fromCharCode(cc+64)}` : String.fromCharCode(cc);
+      items.push({ label, codeVal: cc });
+    }
+  } else { // C
+    for (let v=0; v<=99; v++){
+      const pair = v.toString().padStart(2,"0");
+      items.push({ label: pair, codeVal: v });
+    }
+  }
+
+  const frag=document.createDocumentFragment();
+  items.forEach(({label, codeVal})=>{
+    const pat=getPattern(codeVal);
+    const card=document.createElement("div"); card.className="card";
+    const h4=document.createElement("h4");
+    h4.innerHTML = `<span class="mono">${label}</span> <span class="chip mono">cv=${codeVal}</span> <span class="mono" style="margin-left:auto;">${pat.join("")}</span>`;
+    const mini=document.createElementNS("http://www.w3.org/2000/svg","svg"); mini.setAttribute("class","mini");
+    const modules=pat.reduce((a,b)=>a+b,0), qz=6, totalModules=modules+qz*2;
+    const width=420, height=56, moduleWidth=Math.max(2, Math.floor(width/totalModules)), totalWidthPx=totalModules*moduleWidth;
+    mini.setAttribute("viewBox",`0 0 ${totalWidthPx} ${height}`); mini.setAttribute("width","100%"); mini.setAttribute("height","56");
+    const bg=document.createElementNS("http://www.w3.org/2000/svg","rect"); bg.setAttribute("width",totalWidthPx); bg.setAttribute("height",height); bg.setAttribute("fill","#ffffff"); mini.appendChild(bg);
+    let x=qz*moduleWidth, isBar=true;
+    for(const w of pat){
+      const wPx=w*moduleWidth;
+      if(isBar){
+        const r=document.createElementNS("http://www.w3.org/2000/svg","rect");
+        r.setAttribute("x",x); r.setAttribute("y",0); r.setAttribute("width",wPx); r.setAttribute("height",height); r.setAttribute("fill","#000000");
+        mini.appendChild(r);
+      }
+      x+=wPx; isBar=!isBar;
+    }
+    card.addEventListener("click", ()=> renderExample({ label, codeVal }));
+    card.appendChild(h4); card.appendChild(mini); frag.appendChild(card);
+  });
+  grid.appendChild(frag);
+}
+
+function renderExample({ label, codeVal }){
+  const pat=getPattern(codeVal);
+  const patDigits=pat.join("");
+
+  document.getElementById("exLabel").textContent = (label||"").toString();
+  document.getElementById("exCodeVal").textContent = String(codeVal);
+  document.getElementById("exPattern").textContent = patDigits;
+
+  const words=[]; let isBar=true;
+  for(const w of pat){ words.push((isBar?"Bar×":"Space×")+w); isBar=!isBar; }
+  document.getElementById("exDetails").innerHTML =
+    `Pattern <span class="mono">${patDigits}</span> means: <b>${words.join("</b>, <b>")}</b>. ` +
+    `Bars are black rectangles; spaces are the white gaps. Each number counts modules.`;
+
+  const svg=document.getElementById("exampleSVG");
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+  const modules=pat.reduce((a,b)=>a+b,0), qz=12, totalModules=modules+qz*2;
+  const height=170, topLabel=28, bottomLabel=30;
+  const moduleWidth=Math.max(10, Math.floor(900/totalModules)); // big modules for readability
+  const totalWidthPx=totalModules*moduleWidth, totalHeightPx=topLabel+(height-topLabel-bottomLabel)+bottomLabel;
+
+  svg.setAttribute("viewBox",`0 0 ${totalWidthPx} ${totalHeightPx}`);
+  svg.style.width=totalWidthPx+"px"; svg.style.height=totalHeightPx+"px";
+
+  const bg=document.createElementNS("http://www.w3.org/2000/svg","rect");
+  bg.setAttribute("width",totalWidthPx); bg.setAttribute("height",totalHeightPx); bg.setAttribute("fill","#ffffff"); svg.appendChild(bg);
+
+  const band=document.createElementNS("http://www.w3.org/2000/svg","rect");
+  band.setAttribute("x",qz*moduleWidth); band.setAttribute("y",topLabel);
+  band.setAttribute("width",modules*moduleWidth); band.setAttribute("height",height-topLabel-bottomLabel); band.setAttribute("fill","#f1f5f9"); svg.appendChild(band);
+
+  let x=qz*moduleWidth, segBar=true;
+  for(const w of pat){
+    const wPx=w*moduleWidth;
+
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x",x+wPx/2); t.setAttribute("y",16); t.setAttribute("text-anchor","middle"); t.setAttribute("font-size","14");
+    t.setAttribute("font-family","ui-monospace, Menlo, Consolas, monospace");
+    t.textContent=(segBar?"Bar ":"Space ")+w; svg.appendChild(t);
+
+    if(segBar){
+      const r=document.createElementNS("http://www.w3.org/2000/svg","rect");
+      r.setAttribute("x",x); r.setAttribute("y",topLabel); r.setAttribute("width",wPx); r.setAttribute("height",height-topLabel-bottomLabel); r.setAttribute("fill","#000000");
+      svg.appendChild(r);
+    }
+
+    const b=document.createElementNS("http://www.w3.org/2000/svg","text");
+    b.setAttribute("x",x+wPx/2); b.setAttribute("y",height-6); b.setAttribute("text-anchor","middle"); b.setAttribute("font-size","13");
+    b.setAttribute("font-family","ui-monospace, Menlo, Consolas, monospace");
+    b.textContent=w+(w===1?" module":" modules"); svg.appendChild(b);
+
+    x+=wPx; segBar=!segBar;
+  }
+}
+
+/* ---------- UI wires (unchanged main page) ---------- */
+const inputEl=document.getElementById("inputText");
+const codeSetEl=document.getElementById("codeSet");
+const guidesEl=document.getElementById("showGuides");
+const showTextEl=document.getElementById("showText");
+const textSizeEl=document.getElementById("textSize");
+const qzEl=document.getElementById("quiet");
+const bhEl=document.getElementById("barHeight");
+const mwEl=document.getElementById("moduleWidth");
+const widthModeEl=document.getElementById("widthMode");
+const sizeWrap=document.getElementById("sizeWrap");
+const tsVal=document.getElementById("tsVal");
+const qzVal=document.getElementById("qzVal");
+const bhVal=document.getElementById("bhVal");
+const mwVal=document.getElementById("mwVal");
+const btnSVG=document.getElementById("downloadSVG");
+const btnPNG=document.getElementById("downloadPNG");
+const btnPatterns=document.getElementById("showPatternsBtn");
+const patternsSetEl=document.getElementById("patternsSet");
+const closePatternsBtn=document.getElementById("closePatterns");
+const patternsBackdrop=document.getElementById("patternsBackdrop");
+
+let lastRender=null;
+
+function update(){
+  tsVal.textContent=`${textSizeEl.value} px`;
+  qzVal.textContent=`${qzEl.value} modules`;
+  bhVal.textContent=`${bhEl.value} px`;
+  mwVal.textContent=`${mwEl.value} px/module`;
+  sizeWrap.style.display = (widthModeEl.value === "manual") ? "inline-flex" : "none";
+
+  drawBarcode({
+    input:inputEl.value, set:codeSetEl.value,
+    quietModules:parseInt(qzEl.value,10),
+    showGuides:guidesEl.checked,
+    showText:showTextEl.checked,
+    textSize:parseInt(textSizeEl.value,10),
+    barHeight:parseInt(bhEl.value,10),
+    widthMode:widthModeEl.value,
+    manualModule:parseInt(mwEl.value,10)
+  });
+}
+
+let resizeTimer=null;
+window.addEventListener("resize",()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(update,80); });
+window.addEventListener("orientationchange",()=>setTimeout(update,200));
+
+[inputEl,codeSetEl,guidesEl,showTextEl,textSizeEl,qzEl,bhEl,mwEl,widthModeEl].forEach(el=>el.addEventListener("input",update));
+document.addEventListener("DOMContentLoaded",update);
+btnSVG.addEventListener("click",exportSVG);
+btnPNG.addEventListener("click",exportPNG);
+
+/* modal */
+btnPatterns.addEventListener("click",openPatterns);
+closePatternsBtn.addEventListener("click",closePatterns);
+patternsBackdrop.addEventListener("click",(e)=>{ if(e.target===patternsBackdrop) closePatterns(); });
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape") closePatterns(); });
+patternsSetEl.addEventListener("change",()=>{
+  renderPatternsGrid(patternsSetEl.value);
+  if (patternsSetEl.value === "C") renderExample({ label: "00", codeVal: 0 });
+  else if (patternsSetEl.value === "A") renderExample({ label: "0", codeVal: 48 });
+  else renderExample({ label: "0", codeVal: 16 });
+});
+</script>
+</body>
+</html>
